@@ -51,12 +51,21 @@ int fs_format(){
  */
 int fs_create(char* input_file, char* simul_file){
 	int ret;
+	FILE *inputFd = NULL;
+	struct file_dir_entry newFile;
 	
 	if ( (ret = ds_init(FILENAME, SECTOR_SIZE, NUMBER_OF_SECTORS, 0)) != 0 ){
 		return ret;
 	}
 
 	/* Write the code to load a new file to the simulated filesystem. */
+	
+	inputFd = fopen( input_file, "r+b" );
+	//pegar o tamanho de inputFd e colocar no tamanho do newFIle
+	//pegar o nome de inputFd e colocar no nome do newFile
+	//colocar o proximo bloco livre( q vai ter no root_table_directory ) como o start do newFile
+	//escrever dados no newFile, em blocos, com o que tem no inputFd
+	
 	
 	ds_stop();
 	
