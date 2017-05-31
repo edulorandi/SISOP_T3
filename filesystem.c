@@ -5,6 +5,94 @@
 #include "libdisksimul.h"
 #include "filesystem.h"
 
+int getDirSectorAdress( char* dirPath )
+{
+	struct root_table_directory root_dir;
+	struct table_directory dirTable = NULL; 
+	char* subDir;
+	char* aux;
+	char dirName[20];
+	int i, flag, dirTableAdress;
+	ds_read_sector(0, (void*)&root_dir, SECTOR_SIZE);
+	
+	if( dirPath[0] != '/' )
+	{
+		printf("Invalid directory path, not an abolsute path\n" );
+		return -1;
+	}
+	
+	if( strlen( dirPath ) == 1 ) //root dir
+	{
+		return 0;
+	}
+	
+	memset( dirName, 0, 20 );
+	
+	subDir = strchr( dirPath+1, '/' )
+	
+	aux = dirPath+1;
+	
+	for( i = 0; aux != subDir; i++ )
+	{
+		dirName[i] = *aux;
+		aux++;
+	}
+	
+	for( i = 0; i < 15; i++ )
+	{
+		if( strcmp( dirName, root_dir.entries[i].name ) == 0 ) //mesmo nome
+		{
+			dirTableAdress = root_dir.entries[i].sector_start;
+			ds_read_sector( dirTableAdress, (void*)&dirTable, SECTOR_SIZE );
+			exit( );
+		}
+	}	
+	
+	if( dirTable == NULL )
+	{
+		printf("Directory not found\n");
+		return -1;
+	}
+	
+	subDir = strchr( subDir+1, '/' )
+	
+	while( subDir != NULL )
+	{
+		aux++;
+		flag = 0;
+		memset( dirName, 0, 20 );
+		//aux = subDir+1;
+		
+		for( i = 0; aux != subDir; i++ )
+		{
+			dirName[i] = *aux;
+			aux++;
+		}
+		
+		for( i = 0; i < 16; i++ )
+		{
+			if( strcmp( dirName, dirTable.entries[i].name ) == 0 ) //ver a questao de arquivo x diretorio
+			{
+				dirTableAdress = dirTable.entries[i].sector_start
+				ds_read_sector( dirTableAdress, (void*)&dirTable, SECTOR_SIZE );
+				flag = 1;
+				exit( );
+			}
+		}
+		
+		if( flag == 0 )
+		{
+			printf("Directory not found\n");
+			return -1;
+		}
+		
+		subDir = strchr( subDir+1, '/' )
+	}
+	
+	return dirTableAdress;
+	
+}
+
 
 /**
  * @brief Format disk.
@@ -54,7 +142,10 @@ int fs_create(char* input_file, char* simul_file){
 	int ret;
 	FILE *inputFd = NULL;
 	struct file_dir_entry newFile;
-	
+	struct sector_data tmpSector;
+	struct root_table_directory root_dir;	
+		
+		
 	if ( (ret = ds_init(FILENAME, SECTOR_SIZE, NUMBER_OF_SECTORS, 0)) != 0 ){
 		return ret;
 	}
@@ -71,29 +162,32 @@ int fs_create(char* input_file, char* simul_file){
 
 	fseek( inputFd, 0L, SEEK_END ); //0 or 0L
 	int inputSize = ftell( inputFd );
-
 	printf("inputFile size: %d\n", inputSize );
-
+	
 	newFile.dir = 0;
 	strcpy( newFile.name, input_file );
 	newFile.size_bytes = inputSize;
 
 
-	struct root_table_directory root_dir;	
 	ds_read_sector(0, (void*)&root_dir, SECTOR_SIZE);
 	newFile.sector_start = root_dir.free_sectors_list;
-
+	ds_read_sector( newFile.sector_start, (void*)&tmpSector, SECTOR_SIZE );
+	
 
 	int numOfSectors = inputSize / ( REAL_SECTOR_SIZE );
+	int nextSectorAdress = newFile.sector_start;
 
 	for( int i = 0; i < numOfSectors; i++ )
 	{
 		void* data;
 
 		fseek( inputFd, i*REAL_SECTOR_SIZE, SEEK_SET ); // ver se precisa deixar
-		fread( data, sizeof(char), REAL_SECTOR_SIZE, inputFd ); // 
-
-		ret = ds_write_sector( newFile.sector_start, data, REAL_SECTOR_SIZE );
+		ds_read_sector( nextSectorAdress, (void*)&tmpSector, SECTOR_SIZE );
+		
+		fread( tmpSector.data, sizeof(char), DATA_SECTOR_SIZE, inputFd ); //
+		ds_write_sector( nextSectorAdress, (void*)&tmpSector, SECTOR_SIZE ); 
+		nextSectorAdress = tmpSector.next_sector;
+		
 	}
 
 
