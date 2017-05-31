@@ -1,4 +1,5 @@
 #define SECTOR_SIZE		512
+#define REAL_SECTOR_SIZE 508
 #define NUMBER_OF_SECTORS	2048
 #define FILENAME 		"simul.fs"
 

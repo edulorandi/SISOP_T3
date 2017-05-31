@@ -5,6 +5,7 @@
 #include "libdisksimul.h"
 #include "filesystem.h"
 
+
 /**
  * @brief Format disk.
  * 
@@ -61,6 +62,41 @@ int fs_create(char* input_file, char* simul_file){
 	/* Write the code to load a new file to the simulated filesystem. */
 	
 	inputFd = fopen( input_file, "r+b" );
+
+	if( inputFd == NULL )
+	{
+		printf( "Input file not found\n");
+		return -1;
+	}
+
+	fseek( inputFd, 0L, SEEK_END ); //0 or 0L
+	int inputSize = ftell( inputFd );
+
+	printf("inputFile size: %d\n", inputSize );
+
+	newFile.dir = 0;
+	strcpy( newFile.name, input_file );
+	newFile.size_bytes = inputSize;
+
+
+	struct root_table_directory root_dir;	
+	ds_read_sector(0, (void*)&root_dir, SECTOR_SIZE);
+	newFile.sector_start = root_dir.free_sectors_list;
+
+
+	int numOfSectors = inputSize / ( REAL_SECTOR_SIZE );
+
+	for( int i = 0; i < numOfSectors; i++ )
+	{
+		void* data;
+
+		fseek( inputFd, i*REAL_SECTOR_SIZE, SEEK_SET ); // ver se precisa deixar
+		fread( data, sizeof(char), REAL_SECTOR_SIZE, inputFd ); // 
+
+		ret = ds_write_sector( newFile.sector_start, data, REAL_SECTOR_SIZE );
+	}
+
+
 	//pegar o tamanho de inputFd e colocar no tamanho do newFIle
 	//pegar o nome de inputFd e colocar no nome do newFile
 	//colocar o proximo bloco livre( q vai ter no root_table_directory ) como o start do newFile
