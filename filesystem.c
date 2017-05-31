@@ -139,11 +139,13 @@ int fs_format(){
  * @return 0 on success.
  */
 int fs_create(char* input_file, char* simul_file){
-	int ret;
+	int ret, i;
 	FILE *inputFd = NULL;
 	struct file_dir_entry newFile;
 	struct sector_data tmpSector;
-	struct root_table_directory root_dir;	
+	struct root_table_directory root_dir;
+	struct table_directory dirTable;	
+	int dirAdress;
 		
 		
 	if ( (ret = ds_init(FILENAME, SECTOR_SIZE, NUMBER_OF_SECTORS, 0)) != 0 ){
@@ -171,6 +173,19 @@ int fs_create(char* input_file, char* simul_file){
 
 	ds_read_sector(0, (void*)&root_dir, SECTOR_SIZE);
 	newFile.sector_start = root_dir.free_sectors_list;
+	
+	
+	dirAdress = getDirSectorAdress( simul_file );
+	if( dirAdress < 0 )
+		return -1;
+	
+	ds_read_sector( dirAdress, (void*)&dirTable, SECTOR_SIZE );
+	
+	for( i = 0; i < 16; i++ )
+	{
+		if( dirTable.entries[i].name //AQUI
+	}
+	
 	ds_read_sector( newFile.sector_start, (void*)&tmpSector, SECTOR_SIZE );
 	
 
