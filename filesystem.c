@@ -8,11 +8,12 @@
 int getDirSectorAdress( char* dirPath )
 {
 	struct root_table_directory root_dir;
-	struct table_directory dirTable = NULL; 
+	struct table_directory dirTable; 
 	char* subDir;
 	char* aux;
 	char dirName[20];
 	int i, flag, dirTableAdress;
+	
 	ds_read_sector(0, (void*)&root_dir, SECTOR_SIZE);
 	
 	if( dirPath[0] != '/' )
@@ -28,7 +29,7 @@ int getDirSectorAdress( char* dirPath )
 	
 	memset( dirName, 0, 20 );
 	
-	subDir = strchr( dirPath+1, '/' )
+	subDir = strchr( dirPath+1, '/' );
 	
 	aux = dirPath+1;
 	
@@ -38,23 +39,26 @@ int getDirSectorAdress( char* dirPath )
 		aux++;
 	}
 	
+	flag = 0;
+	
 	for( i = 0; i < 15; i++ )
 	{
 		if( strcmp( dirName, root_dir.entries[i].name ) == 0 ) //mesmo nome
 		{
 			dirTableAdress = root_dir.entries[i].sector_start;
 			ds_read_sector( dirTableAdress, (void*)&dirTable, SECTOR_SIZE );
-			exit( );
+			flag = 1;
+			break;
 		}
 	}	
 	
-	if( dirTable == NULL )
+	if( flag == 0 )
 	{
 		printf("Directory not found\n");
 		return -1;
 	}
 	
-	subDir = strchr( subDir+1, '/' )
+	subDir = strchr( subDir+1, '/' );
 	
 	while( subDir != NULL )
 	{
@@ -73,10 +77,10 @@ int getDirSectorAdress( char* dirPath )
 		{
 			if( strcmp( dirName, dirTable.entries[i].name ) == 0 ) //ver a questao de arquivo x diretorio
 			{
-				dirTableAdress = dirTable.entries[i].sector_start
+				dirTableAdress = dirTable.entries[i].sector_start;
 				ds_read_sector( dirTableAdress, (void*)&dirTable, SECTOR_SIZE );
 				flag = 1;
-				exit( );
+				break;
 			}
 		}
 		
@@ -86,7 +90,7 @@ int getDirSectorAdress( char* dirPath )
 			return -1;
 		}
 		
-		subDir = strchr( subDir+1, '/' )
+		subDir = strchr( subDir+1, '/' );
 	}
 	
 	return dirTableAdress;
@@ -139,16 +143,19 @@ int fs_format(){
  * @return 0 on success.
  */
 int fs_create(char* input_file, char* simul_file){
-	int ret, i;
+	int ret, i, flag;
 	FILE *inputFd = NULL;
 	struct file_dir_entry newFile;
 	struct sector_data tmpSector;
 	struct root_table_directory root_dir;
 	struct table_directory dirTable;	
 	int dirAdress;
+	
+	printf("Creating file\n" );
 		
 		
 	if ( (ret = ds_init(FILENAME, SECTOR_SIZE, NUMBER_OF_SECTORS, 0)) != 0 ){
+		printf("asds\n" );
 		return ret;
 	}
 
@@ -159,10 +166,11 @@ int fs_create(char* input_file, char* simul_file){
 	if( inputFd == NULL )
 	{
 		printf( "Input file not found\n");
+		ds_stop();
 		return -1;
 	}
 
-	fseek( inputFd, 0L, SEEK_END ); //0 or 0L
+	fseek( inputFd, 0, SEEK_END ); //0 or 0L
 	int inputSize = ftell( inputFd );
 	printf("inputFile size: %d\n", inputSize );
 	
@@ -177,34 +185,98 @@ int fs_create(char* input_file, char* simul_file){
 	
 	dirAdress = getDirSectorAdress( simul_file );
 	if( dirAdress < 0 )
+	{
+		ds_stop();
 		return -1;
-	
-	ds_read_sector( dirAdress, (void*)&dirTable, SECTOR_SIZE );
-	
-	for( i = 0; i < 16; i++ )
+	}
+		
+	if( dirAdress == 0 ) // it is trying to write a file in the root dir
 	{
-		if( dirTable.entries[i].name //AQUI
+		flag = 0;
+		for( i = 0; i < 15; i++ )
+		{
+			
+			if( ( root_dir.entries[i].dir == 0 ) && ( root_dir.entries[i].size_bytes == 0 ) ) //se for vazio
+			{
+				root_dir.entries[i] = newFile;
+				flag = 1;
+				break;
+			}
+		}
+		
+		if( flag == 0 )
+		{
+			printf("The destination path ( root directory ) is full!\n" );
+			ds_stop();
+			return -1;
+		}
+		
+		//root_dir updating happens in the end
 	}
 	
-	ds_read_sector( newFile.sector_start, (void*)&tmpSector, SECTOR_SIZE );
+	else
+	{
+		ds_read_sector( dirAdress, (void*)&dirTable, SECTOR_SIZE );
+		
+		flag = 0;
+		for( i = 0; i < 16; i++ )
+		{
+			if( ( dirTable.entries[i].dir == 0 ) && ( dirTable.entries[i].size_bytes == 0 ) ) //se for vazio
+			{
+				dirTable.entries[i] = newFile;
+				flag = 1;
+				break;
+			}
+		}
+		
+		if( flag == 0 )
+		{
+			printf("The destination path in the virtual disk is full!\n" );
+			ds_stop();
+			return -1;
+		}
+		
+		ds_write_sector( dirAdress, (void*)&dirTable, SECTOR_SIZE ); // saves the updated directory		
+	}
 	
 
-	int numOfSectors = inputSize / ( REAL_SECTOR_SIZE );
-	int nextSectorAdress = newFile.sector_start;
-
-	for( int i = 0; i < numOfSectors; i++ )
+	int rest = inputSize % DATA_SIZE; // what rest of the last block
+	int numOfSectors; //number of sectors used - 1
+	int lastBlockSize;
+	if( rest > 0 ) //is not multiple
 	{
-		void* data;
+		lastBlockSize = rest;
+		numOfSectors = ( inputSize / DATA_SIZE ) + 1;
+	}
+	else
+	{
+		lastBlockSize = DATA_SIZE;
+		numOfSectors = inputSize / DATA_SIZE;
+	}
+	
+	int sectorAdress = newFile.sector_start;
+	char data[DATA_SIZE];
+	
+	memset( data, 0, DATA_SIZE );
 
-		fseek( inputFd, i*REAL_SECTOR_SIZE, SEEK_SET ); // ver se precisa deixar
-		ds_read_sector( nextSectorAdress, (void*)&tmpSector, SECTOR_SIZE );
+	for( i = 0; i < numOfSectors - 1; i++ )
+	{
+		ds_read_sector( sectorAdress, (void*)&tmpSector, SECTOR_SIZE );
+		fread( data, sizeof(char), DATA_SIZE, inputFd ); 
+		ds_write_sector( sectorAdress, (void*)&data, DATA_SIZE ); 
 		
-		fread( tmpSector.data, sizeof(char), DATA_SECTOR_SIZE, inputFd ); //
-		ds_write_sector( nextSectorAdress, (void*)&tmpSector, SECTOR_SIZE ); 
-		nextSectorAdress = tmpSector.next_sector;
-		
+		sectorAdress = tmpSector.next_sector;
 	}
 
+	
+	ds_read_sector( sectorAdress, (void*)&tmpSector, SECTOR_SIZE );
+	
+	root_dir.free_sectors_list = tmpSector.next_sector;
+	ds_write_sector( 0, (void*)&root_dir, SECTOR_SIZE );
+	
+	memset( &tmpSector, 0, SECTOR_SIZE );
+	fread( tmpSector.data, sizeof(char), lastBlockSize, inputFd );
+	ds_write_sector( sectorAdress, (void*)&tmpSector, SECTOR_SIZE ); 
 
 	//pegar o tamanho de inputFd e colocar no tamanho do newFIle
 	//pegar o nome de inputFd e colocar no nome do newFile
