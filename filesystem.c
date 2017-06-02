@@ -154,6 +154,7 @@ int fs_create(char* input_file, char* simul_file){
 	struct root_table_directory root_dir;
 	struct table_directory dirTable;	
 	int dirAdress;
+	char * newFileName;
 	
 	printf("Creating file\n" );
 		
@@ -174,12 +175,22 @@ int fs_create(char* input_file, char* simul_file){
 		return -1;
 	}
 
+	newFileName = strrchr( simul_file, '/' ); //aponta pro ultimo '/'
+	newFileName = newFileName + 1;
+	
+	if( newFileName[0] == '\0' ) // se '/' for o ultimo caractere
+	{
+		printf("Invalid file source, no file name specified \n" );
+		ds_stop();
+		return -1;
+	}
+	
 	fseek( inputFd, 0, SEEK_END ); //0 or 0L
 	int inputSize = ftell( inputFd );
 	printf("inputFile size: %d\n", inputSize );
 	
 	newFile.dir = 0;
-	strcpy( newFile.name, input_file );
+	strcpy( newFile.name, newFileName );
 	newFile.size_bytes = inputSize;
 
 
@@ -201,9 +212,9 @@ int fs_create(char* input_file, char* simul_file){
 		for( i = 0; i < 15; i++ )
 		{
 			
-			if( ( root_dir.entries[i].dir == 0 ) && ( strcmp( root_dir.entries[i].name, input_file ) == 0 ) ) //se ja existe file
+			if( ( root_dir.entries[i].dir == 0 ) && ( strcmp( root_dir.entries[i].name, newFileName ) == 0 ) ) //se ja existe file
 			{
-				printf("There already is a file called '%s'. Exiting.\n", input_file );
+				printf("There already is a file called '%s'. Exiting.\n", newFileName );
 				ds_stop();
 				return -1;
 			}
@@ -237,9 +248,9 @@ int fs_create(char* input_file, char* simul_file){
 		for( i = 0; i < 16; i++ )
 		{
 			
-			if( ( dirTable.entries[i].dir == 0 ) && ( strcmp( dirTable.entries[i].name, input_file ) == 0 ) ) //se ja existe file
+			if( ( dirTable.entries[i].dir == 0 ) && ( strcmp( dirTable.entries[i].name, newFileName ) == 0 ) ) //se ja existe file
 			{
-				printf("There already is a file called '%s'. Exiting.\n", input_file );
+				printf("There already is a file called '%s'. Exiting.\n", newFileName );
 				ds_stop();
 				return -1;
 			}
