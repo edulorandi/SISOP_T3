@@ -22,14 +22,14 @@ int getDirSectorAdress( char* dirPath )
 		return -1;
 	}
 	
-	if( strlen( dirPath ) == 1 ) //root dir
-	{
-		return 0;
-	}
-	
-	memset( dirName, 0, 20 );
-	
 	subDir = strchr( dirPath+1, '/' );
+	
+	if( subDir == NULL )
+	{
+		return 0; //root directory
+	}
+		
+	memset( dirName, 0, 20 );
 	
 	aux = dirPath+1;
 	
@@ -41,9 +41,11 @@ int getDirSectorAdress( char* dirPath )
 	
 	flag = 0;
 	
+	printf("Dir name: %s\n", dirName );
+	
 	for( i = 0; i < 15; i++ )
 	{
-		if( strcmp( dirName, root_dir.entries[i].name ) == 0 ) //mesmo nome
+		if( (strcmp( dirName, root_dir.entries[i].name ) == 0) && (root_dir.entries[i].dir == 1 ) ) //mesmo nome
 		{
 			dirTableAdress = root_dir.entries[i].sector_start;
 			ds_read_sector( dirTableAdress, (void*)&dirTable, SECTOR_SIZE );
@@ -73,9 +75,11 @@ int getDirSectorAdress( char* dirPath )
 			aux++;
 		}
 		
+		printf("Dir name: %s\n", dirName );
+		
 		for( i = 0; i < 16; i++ )
 		{
-			if( strcmp( dirName, dirTable.entries[i].name ) == 0 ) //ver a questao de arquivo x diretorio
+			if( ( strcmp( dirName, dirTable.entries[i].name ) == 0 ) && ( dirTable.entries[i].dir == 1 ) ) //ver a questao de arquivo x diretorio
 			{
 				dirTableAdress = dirTable.entries[i].sector_start;
 				ds_read_sector( dirTableAdress, (void*)&dirTable, SECTOR_SIZE );
@@ -193,6 +197,18 @@ int fs_create(char* input_file, char* simul_file){
 	if( dirAdress == 0 ) // it is trying to write a file in the root dir
 	{
 		flag = 0;
+		
+		for( i = 0; i < 15; i++ )
+		{
+			
+			if( ( root_dir.entries[i].dir == 0 ) && ( strcmp( root_dir.entries[i].name, input_file ) == 0 ) ) //se ja existe file
+			{
+				printf("There already is a file called '%s'. Exiting.\n", input_file );
+				ds_stop();
+				return -1;
+			}
+		}
+		
 		for( i = 0; i < 15; i++ )
 		{
 			
@@ -217,6 +233,17 @@ int fs_create(char* input_file, char* simul_file){
 	else
 	{
 		ds_read_sector( dirAdress, (void*)&dirTable, SECTOR_SIZE );
+		
+		for( i = 0; i < 16; i++ )
+		{
+			
+			if( ( dirTable.entries[i].dir == 0 ) && ( strcmp( dirTable.entries[i].name, input_file ) == 0 ) ) //se ja existe file
+			{
+				printf("There already is a file called '%s'. Exiting.\n", input_file );
+				ds_stop();
+				return -1;
+			}
+		}
 		
 		flag = 0;
 		for( i = 0; i < 16; i++ )
@@ -332,13 +359,61 @@ int fs_del(char* simul_file){
  * @return 0 on success.
  */
 int fs_ls(char *dir_path){
-	int ret;
+	int ret, i;
 	if ( (ret = ds_init(FILENAME, SECTOR_SIZE, NUMBER_OF_SECTORS, 0)) != 0 ){
 		return ret;
 	}
 	
 	/* Write the code to show files or directories. */
 	
+	struct root_table_directory root_dir;
+	struct table_directory dirTable;
+	int dirAdress = getDirSectorAdress( dir_path );
+	
+	if( dirAdress < 0 )
+	{
+		ds_stop();
+		return -1;
+	}
+		
+	printf( "Listing '%s' directory:\n", dir_path );
+	
+	
+	if( dirAdress == 0 )
+	{
+		ds_read_sector( 0, (void*)&root_dir, SECTOR_SIZE );
+		
+		for( i = 0; i < 15; i++ )
+		{
+			if( (root_dir.entries[i].dir == 1) )
+			{
+				printf( "\t- [d] %s\n", root_dir.entries[i].name );
+			}
+			else if( (root_dir.entries[i].dir == 0) && (root_dir.entries[i].size_bytes > 0) )
+			{
+				printf( "\t- [f] %s\t%d Bytes\n", root_dir.entries[i].name, root_dir.entries[i].size_bytes );
+			}
+		}
+	}
+	
+	else
+	{
+		ds_read_sector( 0, (void*)&dirTable, SECTOR_SIZE );
+		
+		for( i = 0; i < 16; i++ )
+		{
+			if( (dirTable.entries[i].dir == 1) )
+			{
+				printf( "\t- [d] %s\n", dirTable.entries[i].name );
+			}
+			else if( (dirTable.entries[i].dir == 0) && (dirTable.entries[i].size_bytes > 0) )
+			{
+				printf( "\t- [f] %s\t%d Bytes\n", dirTable.entries[i].name, dirTable.entries[i].size_bytes );
+			}
+		}
+	}
+	
+	printf("\n" );
 	ds_stop();
 	
 	return 0;

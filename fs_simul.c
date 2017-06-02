@@ -28,7 +28,7 @@ int main(int argc, char **argv){
 		{
 			fs_format();
 		}
-		
+				
 		else if( !strcmp(argv[1], "-create") )
 		{
 			if( argc < 3 )
@@ -42,6 +42,20 @@ int main(int argc, char **argv){
 				printf("argv[3]: %s\n", argv[3] );
 				
 				fs_create( argv[2], argv[3] );
+			}
+		}
+		
+		else if( !strcmp(argv[1], "-ls") )
+		{
+			if( argc < 2 )
+			{
+				usage( argv[0] );
+			}
+			
+			else
+			{
+				printf("argv[2]: %s\n", argv[2] );	
+				fs_ls( argv[2] );
 			}
 		}
 	}
