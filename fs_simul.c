@@ -58,6 +58,20 @@ int main(int argc, char **argv){
 				fs_ls( argv[2] );
 			}
 		}
+		
+		else if( !strcmp(argv[1], "-mkdir") )
+		{
+			if( argc < 2 )
+			{
+				usage( argv[0] );
+			}
+			
+			else
+			{
+				printf("argv[2]: %s\n", argv[2] );	
+				fs_mkdir( argv[2] );
+			}
+		}
 	}
 	
 	

@@ -436,12 +436,122 @@ int fs_ls(char *dir_path){
  * @return 0 on success.
  */
 int fs_mkdir(char* directory_path){
-	int ret;
+	int ret, i;
 	if ( (ret = ds_init(FILENAME, SECTOR_SIZE, NUMBER_OF_SECTORS, 0)) != 0 ){
 		return ret;
 	}
 	
 	/* Write the code to create a new directory. */
+	
+	int dirAdress = getDirSectorAdress( directory_path );
+	char *newDirName;
+	
+	if( dirAdress < 0 )
+	{
+		ds_stop( );
+		return -1;
+	}
+	
+	newDirName = strrchr( directory_path, '/' ); //aponta pro ultimo '/'
+	newDirName = newDirName + 1;
+	struct root_table_directory root_dir;
+	struct file_dir_entry newDir;
+	struct table_directory dirTable;
+	struct sector_data sector;  
+	
+	if( newDirName[0] == '\0' ) // se '/' for o ultimo caractere
+	{
+		printf("Invalid file source, no file name specified \n" );
+		ds_stop();
+		return -1;
+	}
+	
+	newDir.dir = 1;
+	strcpy( newDir.name, newDirName);
+	newDir.size_bytes = 0;
+	 
+	ds_read_sector( 0, (void*)&root_dir, SECTOR_SIZE );
+	
+	newDir.sector_start = root_dir.free_sectors_list;
+	
+	int flag = 0;
+	
+	if( dirAdress == 0 ) // root dir
+	{
+		
+		for( i = 0; i < 15; i++ )
+		{
+			
+			if( ( root_dir.entries[i].dir == 1 ) && ( strcmp( root_dir.entries[i].name, newDirName ) == 0 ) ) //se ja existe directory
+			{
+				printf("There already is a directory called '%s'. Exiting.\n", newDirName );
+				ds_stop();
+				return -1;
+			}
+		}
+		
+		for( i = 0; i < 15; i++ )
+		{
+			
+			if( ( root_dir.entries[i].dir == 0 ) && ( root_dir.entries[i].size_bytes == 0 ) ) //se for vazio
+			{
+				root_dir.entries[i] = newDir;
+				flag = 1;
+				break;
+			}
+		}
+		
+		if( flag == 0 )
+		{
+			printf("The root directorty in the virtual disk is full!\n" );
+			ds_stop();
+			return -1;
+		}
+		
+	}	
+	
+	else
+	{
+		ds_read_sector( dirAdress, (void*)&dirTable, SECTOR_SIZE );
+		
+		for( i = 0; i < 16; i++ )
+		{
+			
+			if( ( dirTable.entries[i].dir == 1 ) && ( strcmp( dirTable.entries[i].name, newDirName ) == 0 ) ) //se ja existe dir
+			{
+				printf("There already is a directory called '%s'. Exiting.\n", newDirName );
+				ds_stop();
+				return -1;
+			}
+		}
+		
+		flag = 0;
+		for( i = 0; i < 16; i++ )
+		{
+			if( ( dirTable.entries[i].dir == 0 ) && ( dirTable.entries[i].size_bytes == 0 ) ) //se for vazio
+			{
+				dirTable.entries[i] = newDir;
+				flag = 1;
+				break;
+			}
+		}
+		
+		if( flag == 0 )
+		{
+			printf("The destination path in the virtual disk is full!\n" );
+			ds_stop();
+			return -1;
+		}
+		
+		ds_write_sector( dirAdress, (void*)&dirTable, SECTOR_SIZE ); // saves the updated directory		
+	}
+	
+	ds_read_sector( newDir.sector_start, (void*)&sector, SECTOR_SIZE );
+	root_dir.free_sectors_list = sector.next_sector;
+	memset( &sector, 0, SECTOR_SIZE );
+	ds_write_sector( newDir.sector_start, (void*)&sector, SECTOR_SIZE );
+	
+	ds_write_sector( 0, (void*)&root_dir, SECTOR_SIZE );
 	
 	ds_stop();
 	
