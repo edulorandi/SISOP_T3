@@ -379,6 +379,12 @@ int fs_ls(char *dir_path){
 	
 	struct root_table_directory root_dir;
 	struct table_directory dirTable;
+	
+	if ( dir_path[ strlen(dir_path) - 1 ] != '/' )
+	{
+		strcat( dir_path, "/" );
+	}
+			
 	int dirAdress = getDirSectorAdress( dir_path );
 	
 	if( dirAdress < 0 )
@@ -409,7 +415,7 @@ int fs_ls(char *dir_path){
 	
 	else
 	{
-		ds_read_sector( 0, (void*)&dirTable, SECTOR_SIZE );
+		ds_read_sector( dirAdress, (void*)&dirTable, SECTOR_SIZE );
 		
 		for( i = 0; i < 16; i++ )
 		{
