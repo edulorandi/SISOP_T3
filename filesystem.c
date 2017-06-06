@@ -570,12 +570,70 @@ int fs_mkdir(char* directory_path){
  * @return 0 on success.
  */
 int fs_rmdir(char *directory_path){
-	int ret;
+	int ret, i;
 	if ( (ret = ds_init(FILENAME, SECTOR_SIZE, NUMBER_OF_SECTORS, 0)) != 0 ){
 		return ret;
 	}
 	
 	/* Write the code to delete a directory. */
+	
+	struct table_directory dirTable;
+	struct sector_data sector;
+		
+	if ( directory_path[ strlen(directory_path) - 1 ] != '/' )
+	{
+		strcat( directory_path, "/" );
+	}
+			
+	int dirAdress = getDirSectorAdress( directory_path );
+	
+	if( dirAdress < -1 )
+	{
+		ds_stop( );
+		return -1;
+	}
+	
+	if( dirAdress < 0 )
+	{
+		printf("Cannot remove root directory\n" );
+		ds_stop( );
+		return -1;
+	}
+	
+	ds_read_sector( dirAdress, (void*)&dirTable, SECTOR_SIZE );
+	
+	for( i = 0; i < 16; i ++ )
+	{
+		if( ( dirTable.entries[i].dir == 1 ) || 
+		  ( ( dirTable.entries[i].dir == 0 ) && ( dirTable.entries[i].size > 0 ) ) )
+		{
+			printf("The directory is not empty\n" );
+			ds_stop();
+			return -1; 
+		}
+	}
+	
+	// directory not empty, it is possible to Remove
+	
+	ds_read_sector( dirAdress, (void*)&sector, SECTOR_SIZE );
+	memset( &sector, 0, SECTOR_SIZE );
+	// ultimo_setor_livre.next_sector = dirAdress
+	ds_write_sector( dirAdress, (void*)&sector, SECTOR_SIZE );
+	
+	
+	char* fatherDirPath;
+	
+	strcpy( fatherDirPath, directory_path, strlen(directory_path) - 1 );
+	
+	dirAdress = getDirSectorAdress( fatherDirPath );
+	
+	// if( dirAdress == 0 )
+	// {
+	// 	ds_read_sector()
+	// }
+	// 
+	
+	
 	
 	ds_stop();
 	
