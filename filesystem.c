@@ -101,6 +101,31 @@ int getDirSectorAdress( char* dirPath )
 	
 }
 
+int getLastFreeSectorAdress( )
+{
+	struct root_table_directory root_dir;
+	struct sector_data sector;
+	int i, next_sector, current_sector;
+	
+	ds_read_sector( 0, (void*)&root_dir, SECTOR_SIZE );
+	
+	ds_read_sector( root_dir.free_sectors_list, (void*)&sector, SECTOR_SIZE );
+	
+	next_sector = sector.next_sector;
+	
+	while( next_sector != 0 )
+	{
+		current_sector = next_sector;
+		
+		ds_read_sector( current_sector, (void*)&sector, SECTOR_SIZE );
+		
+		next_sector = sector.next_sector;
+	}
+	
+	return current_sector;
+	
+}
+
 
 /**
  * @brief Format disk.
@@ -578,7 +603,9 @@ int fs_rmdir(char *directory_path){
 	/* Write the code to delete a directory. */
 	
 	struct table_directory dirTable;
-	struct sector_data sector;
+	struct sector_data sector, lastFreeSector;
+	struct root_table_directory root_dir;
+	char* dirName;
 		
 	if ( directory_path[ strlen(directory_path) - 1 ] != '/' )
 	{
@@ -615,9 +642,14 @@ int fs_rmdir(char *directory_path){
 	
 	// directory not empty, it is possible to Remove
 	
+	int lastFreeSectorAdress = getLastFreeSectorAdress( );
 	ds_read_sector( dirAdress, (void*)&sector, SECTOR_SIZE );
+	ds_read_sector( lastFreeSectorAdress, (void*)&lastFreeSector, SECTOR_SIZE );
+	
 	memset( &sector, 0, SECTOR_SIZE );
-	// ultimo_setor_livre.next_sector = dirAdress
+	lastFreeSector.next_sector = dirAdress;
+	
+	ds_write_sector( lastFreeSectorAdress, (void*)&lastFreeSector, SECTOR_SIZE );
 	ds_write_sector( dirAdress, (void*)&sector, SECTOR_SIZE );
 	
 	
@@ -627,11 +659,19 @@ int fs_rmdir(char *directory_path){
 	
 	dirAdress = getDirSectorAdress( fatherDirPath );
 	
-	// if( dirAdress == 0 )
-	// {
-	// 	ds_read_sector()
-	// }
-	// 
+	if( dirAdress == 0 )
+	{
+		ds_read_sector( 0, (void*)&root_dir, SECTOR_SIZE );
+		
+		for( i = 0; i < 15; i++ )
+		{
+			if( ( root_dir.entries[i].dir == 1 ) && ( strcmp( root_dir.entries[i].name,  ) ) ) // AQUI
+		}
+		
+	}
+	
+	
+	
 	
 	
 	
