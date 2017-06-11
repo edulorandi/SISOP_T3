@@ -612,7 +612,9 @@ int fs_rmdir(char *directory_path){
 	{
 		dirName = (char*)malloc( strlen( strrchr( directory_path, '/' ) ) );
 		strcpy( dirName, strrchr( directory_path, '/' ) );
-		strcat( directory_path, "/" );		
+		strcat( directory_path, "/" );	
+		
+		printf("dir name: %s\n", dirName );	
 	}
 	
 	else
@@ -683,7 +685,7 @@ int fs_rmdir(char *directory_path){
 		
 		for( i = 0; i < 15; i++ )
 		{
-			if( ( root_dir.entries[i].dir == 1 ) && ( strcmp( root_dir.entries[i].name, dirName ) ) )
+			if( ( root_dir.entries[i].dir == 1 ) && ( !strcmp( root_dir.entries[i].name, dirName ) ) )
 			{
 				memset( &root_dir.entries[i], 0, sizeof( root_dir.entries[i] ) );
 				break;
@@ -700,7 +702,7 @@ int fs_rmdir(char *directory_path){
 		
 		for( i = 0; i < 16; i++ )
 		{
-			if( ( dirTable.entries[i].dir == 1 ) && ( strcmp( dirTable.entries[i].name, dirName ) ) )
+			if( ( dirTable.entries[i].dir == 1 ) && ( !strcmp( dirTable.entries[i].name, dirName ) ) )
 			{
 				memset( &dirTable.entries[i], 0, sizeof( struct file_dir_entry ) );
 				break;
