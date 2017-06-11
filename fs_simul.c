@@ -45,6 +45,22 @@ int main(int argc, char **argv){
 			}
 		}
 		
+		else if( !strcmp(argv[1], "-read") )
+		{
+			if( argc < 3 )
+			{
+				usage( argv[0] );
+			}
+			
+			else
+			{
+				printf("argv[2]: %s\n", argv[2] );
+				printf("argv[3]: %s\n", argv[3] );
+				
+				fs_read( argv[2], argv[3] );
+			}
+		}
+		
 		else if( !strcmp(argv[1], "-ls") )
 		{
 			if( argc < 2 )

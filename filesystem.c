@@ -320,13 +320,19 @@ int fs_create(char* input_file, char* simul_file){
 	int sectorAdress = newFile.sector_start;
 	char data[DATA_SIZE];
 	
+	printf("newfile sector start %d\n", sectorAdress );
+	
 	memset( data, 0, DATA_SIZE );
+	
+	fseek( inputFd, 0, SEEK_SET );
 
 	for( i = 0; i < numOfSectors - 1; i++ )
 	{
 		ds_read_sector( sectorAdress, (void*)&tmpSector, SECTOR_SIZE );
-		fread( data, sizeof(char), DATA_SIZE, inputFd ); 
-		ds_write_sector( sectorAdress, (void*)&data, DATA_SIZE ); 
+		fread( tmpSector.data, sizeof(char), DATA_SIZE, inputFd );
+		
+		ds_write_sector( sectorAdress, (void*)&tmpSector, SECTOR_SIZE ); 
+		
 		
 		sectorAdress = tmpSector.next_sector;
 	}
@@ -341,11 +347,10 @@ int fs_create(char* input_file, char* simul_file){
 	fread( tmpSector.data, sizeof(char), lastBlockSize, inputFd );
 	ds_write_sector( sectorAdress, (void*)&tmpSector, SECTOR_SIZE ); 
 
-	//pegar o tamanho de inputFd e colocar no tamanho do newFIle
-	//pegar o nome de inputFd e colocar no nome do newFile
-	//colocar o proximo bloco livre( q vai ter no root_table_directory ) como o start do newFile
-	//escrever dados no newFile, em blocos, com o que tem no inputFd
+	fclose( inputFd );
 	
+	ds_read_sector( 2, (void*)&tmpSector, SECTOR_SIZE ); 
+	printf("next_sector do 2: %d\n", tmpSector.next_sector );
 	
 	ds_stop();
 	
@@ -359,12 +364,123 @@ int fs_create(char* input_file, char* simul_file){
  * @return 0 on success.
  */
 int fs_read(char* output_file, char* simul_file){
-	int ret;
+	int ret, i;
 	if ( (ret = ds_init(FILENAME, SECTOR_SIZE, NUMBER_OF_SECTORS, 0)) != 0 ){
 		return ret;
 	}
 	
 	/* Write the code to read a file from the simulated filesystem. */
+	
+	FILE *outputFd = NULL;
+	char * fileName;
+	int flag;
+	struct root_table_directory root_dir;
+	struct file_dir_entry fileEntry;
+	struct table_directory dirTable;
+	struct sector_data sector;
+	int dirAdress = getDirSectorAdress( simul_file );
+	
+	fileName = strrchr( simul_file, '/' ) + 1;
+	printf("filename: %s\n", fileName );
+	
+	if( *(fileName) == '\0' )
+	{
+		printf("No filename specified\n" );
+		ds_stop( );
+		return -1;
+	}
+	
+	if( dirAdress == -1 )
+	{
+		ds_stop( );
+		return -1;
+	}
+	
+	flag = 0;
+	
+	if( dirAdress == 0 )
+	{
+		ds_read_sector( 0, (void*)&root_dir, SECTOR_SIZE );
+		for( i = 0; i < 15; i++ )
+		{
+			if( (root_dir.entries[i].dir == 0) && (!strcmp( root_dir.entries[i].name, fileName ) ) )
+			{
+				fileEntry = root_dir.entries[i];
+				flag = 1;
+				break;
+			}
+		}
+		
+		if( flag == 0 )
+		{
+			printf("File from the virtual disk not found\n" );
+			ds_stop( );
+			return -1;
+		}
+		
+	}
+	else
+	{
+		ds_read_sector( dirAdress, (void*)&dirTable, SECTOR_SIZE );
+		for( i = 0; i < 16; i++ )
+		{
+			if( (dirTable.entries[i].dir == 0) && (!strcmp( dirTable.entries[i].name, fileName ) ) )
+			{
+				fileEntry = dirTable.entries[i];
+				flag = 1;
+				break;
+			}
+		}
+		
+		if( flag == 0 )
+		{
+			printf("File from the virtual disk not found\n" );
+			ds_stop( );
+			return -1;
+		}
+	}
+	
+	//se chegou ate aqui, eh porque achou o arquivo e fileEntry é a entrada dele
+	
+	outputFd = fopen( output_file, "w" );
+	
+	if( outputFd == NULL )
+	{
+		printf("Output file not found\n" );
+		ds_stop( );
+		return -1;
+	}
+	
+	printf( "File entry info: %s %d %d", fileEntry.name, fileEntry.size_bytes, fileEntry.sector_start );
+	
+	ds_read_sector( fileEntry.sector_start, (void*)&sector, SECTOR_SIZE );
+	
+	i = 0;
+	
+	printf("Sector info: %s, %d\n", sector.data, sector.next_sector );
+	
+	while( sector.next_sector != 0 )
+	{
+		
+		fseek( outputFd, i * DATA_SIZE, SEEK_SET );
+		i++;
+		fwrite( sector.data, sizeof(char), DATA_SIZE, outputFd );
+		ds_read_sector( sector.next_sector, (void*)&sector, SECTOR_SIZE );
+		printf( "Sector.next_sector: %d\n", sector.next_sector );	
+	}
+	
+	int lastBlockSize;
+	
+	int aux = fileEntry.size_bytes % DATA_SIZE;
+	if( aux == 0 )
+		lastBlockSize = DATA_SIZE;
+	else
+		lastBlockSize = aux;
+	
+	fseek( outputFd, i * DATA_SIZE, SEEK_SET );
+	fwrite( sector.data, sizeof(char), lastBlockSize, outputFd );
+	
+	fclose( outputFd );
 	
 	ds_stop();
 	
