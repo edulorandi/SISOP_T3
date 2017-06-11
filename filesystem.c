@@ -105,7 +105,7 @@ int getLastFreeSectorAdress( )
 {
 	struct root_table_directory root_dir;
 	struct sector_data sector;
-	int i, next_sector, current_sector;
+	int next_sector, current_sector;
 	
 	ds_read_sector( 0, (void*)&root_dir, SECTOR_SIZE );
 	
@@ -605,22 +605,38 @@ int fs_rmdir(char *directory_path){
 	struct table_directory dirTable;
 	struct sector_data sector, lastFreeSector;
 	struct root_table_directory root_dir;
-	char* dirName;
+	char* dirName = NULL;
+	
 		
-	if ( directory_path[ strlen(directory_path) - 1 ] != '/' )
+	if( directory_path[ strlen(directory_path) - 1 ] != '/' )
 	{
-		strcat( directory_path, "/" );
+		dirName = (char*)malloc( strlen( strrchr( directory_path, '/' ) ) );
+		strcpy( dirName, strrchr( directory_path, '/' ) );
+		strcat( directory_path, "/" );		
+	}
+	
+	else
+	{
+		// dirName = (char*)malloc( strlen( strrchr( directory_path, '/' ) ) );
+		// 
+		// 
+		// strcpy( dirName, strrchr( directory_path ,  '/' ) );
+		// strncpy( dirName, dirName, strlen( dirName ) - 1 ); 
+		
+		// Achar uma maneira de funfar ^
+		
+		printf( "Do not terminate with / plz\n" );
 	}
 			
 	int dirAdress = getDirSectorAdress( directory_path );
 	
-	if( dirAdress < -1 )
+	if( dirAdress == -1 )
 	{
 		ds_stop( );
 		return -1;
 	}
 	
-	if( dirAdress < 0 )
+	if( dirAdress == 0 )
 	{
 		printf("Cannot remove root directory\n" );
 		ds_stop( );
@@ -632,7 +648,7 @@ int fs_rmdir(char *directory_path){
 	for( i = 0; i < 16; i ++ )
 	{
 		if( ( dirTable.entries[i].dir == 1 ) || 
-		  ( ( dirTable.entries[i].dir == 0 ) && ( dirTable.entries[i].size > 0 ) ) )
+		  ( ( dirTable.entries[i].dir == 0 ) && ( dirTable.entries[i].size_bytes > 0 ) ) )
 		{
 			printf("The directory is not empty\n" );
 			ds_stop();
@@ -655,7 +671,9 @@ int fs_rmdir(char *directory_path){
 	
 	char* fatherDirPath;
 	
-	strcpy( fatherDirPath, directory_path, strlen(directory_path) - 1 );
+	fatherDirPath = (char*)malloc( strlen( directory_path ) - 1 );
+	
+	strncpy( fatherDirPath, directory_path, strlen(directory_path) - 1 );
 	
 	dirAdress = getDirSectorAdress( fatherDirPath );
 	
@@ -665,15 +683,33 @@ int fs_rmdir(char *directory_path){
 		
 		for( i = 0; i < 15; i++ )
 		{
-			if( ( root_dir.entries[i].dir == 1 ) && ( strcmp( root_dir.entries[i].name,  ) ) ) // AQUI
+			if( ( root_dir.entries[i].dir == 1 ) && ( strcmp( root_dir.entries[i].name, dirName ) ) )
+			{
+				memset( &root_dir.entries[i], 0, sizeof( root_dir.entries[i] ) );
+				break;
+			} 
 		}
 		
+		ds_write_sector( 0, (void*)&root_dir, SECTOR_SIZE );
+
 	}
 	
+	else
+	{
+		ds_read_sector( dirAdress, (void*)&dirTable, SECTOR_SIZE );
+		
+		for( i = 0; i < 16; i++ )
+		{
+			if( ( dirTable.entries[i].dir == 1 ) && ( strcmp( dirTable.entries[i].name, dirName ) ) )
+			{
+				memset( &dirTable.entries[i], 0, sizeof( struct file_dir_entry ) );
+				break;
+			} 
+		}
 	
+		ds_write_sector( dirAdress, (void*)&dirTable, SECTOR_SIZE );
 	
-	
-	
+	}
 	
 	ds_stop();
 	
