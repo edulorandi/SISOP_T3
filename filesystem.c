@@ -185,7 +185,6 @@ int fs_create(char* input_file, char* simul_file){
 		
 		
 	if ( (ret = ds_init(FILENAME, SECTOR_SIZE, NUMBER_OF_SECTORS, 0)) != 0 ){
-		printf("asds\n" );
 		return ret;
 	}
 
@@ -324,8 +323,6 @@ int fs_create(char* input_file, char* simul_file){
 	int sectorAdress = newFile.sector_start;
 	char data[DATA_SIZE];
 	
-	printf("newfile sector start %d\n", sectorAdress );
-	
 	memset( data, 0, DATA_SIZE );
 	
 	fseek( inputFd, 0, SEEK_SET );
@@ -352,9 +349,6 @@ int fs_create(char* input_file, char* simul_file){
 	ds_write_sector( sectorAdress, (void*)&tmpSector, SECTOR_SIZE ); 
 
 	fclose( inputFd );
-	
-	ds_read_sector( 2, (void*)&tmpSector, SECTOR_SIZE ); 
-	printf("next_sector do 2: %d\n", tmpSector.next_sector );
 	
 	ds_stop();
 	
@@ -385,7 +379,6 @@ int fs_read(char* output_file, char* simul_file){
 	int dirAdress = getDirSectorAdress( simul_file );
 	
 	fileName = strrchr( simul_file, '/' ) + 1;
-	printf("filename: %s\n", fileName );
 	
 	if( *(fileName) == '\0' )
 	{
@@ -459,13 +452,9 @@ int fs_read(char* output_file, char* simul_file){
 		return -1;
 	}
 	
-	printf( "File entry info: %s %d %d", fileEntry.name, fileEntry.size_bytes, fileEntry.sector_start );
-	
 	ds_read_sector( fileEntry.sector_start, (void*)&sector, SECTOR_SIZE );
 	
 	i = 0;
-	
-	printf("Sector info: %s, %d\n", sector.data, sector.next_sector );
 	
 	while( sector.next_sector != 0 )
 	{
@@ -474,7 +463,6 @@ int fs_read(char* output_file, char* simul_file){
 		i++;
 		fwrite( sector.data, sizeof(char), DATA_SIZE, outputFd );
 		ds_read_sector( sector.next_sector, (void*)&sector, SECTOR_SIZE );
-		printf( "Sector.next_sector: %d\n", sector.next_sector );	
 	}
 	
 	int lastBlockSize;
@@ -823,8 +811,8 @@ int fs_rmdir(char *directory_path){
 		
 	if( directory_path[ strlen(directory_path) - 1 ] != '/' )
 	{
-		dirName = (char*)malloc( strlen( strrchr( directory_path, '/' ) ) );
-		strcpy( dirName, strrchr( directory_path, '/' ) );
+		dirName = (char*)malloc( strlen( strrchr( directory_path, '/' ) ) - 1 );
+		strcpy( dirName, strrchr( directory_path, '/' ) + 1 );
 		strcat( directory_path, "/" );	
 		
 		printf("dir name: %s\n", dirName );	
@@ -832,15 +820,14 @@ int fs_rmdir(char *directory_path){
 	
 	else
 	{
-		// dirName = (char*)malloc( strlen( strrchr( directory_path, '/' ) ) );
-		// 
-		// 
-		// strcpy( dirName, strrchr( directory_path ,  '/' ) );
-		// strncpy( dirName, dirName, strlen( dirName ) - 1 ); 
+		directory_path[ strlen( directory_path ) - 1 ] = '\0';
 		
-		// Achar uma maneira de funfar ^
+		dirName = (char*)malloc( strlen( strrchr( directory_path, '/' ) ) - 1 );
+		strcpy( dirName, strrchr( directory_path, '/' ) + 1 );
+		strcat( directory_path, "/" );	
 		
-		printf( "Do not terminate with / plz\n" );
+		printf("dir name: %s\n", dirName );	
+	
 	}
 			
 	int dirAdress = getDirSectorAdress( directory_path );

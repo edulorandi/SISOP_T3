@@ -38,8 +38,6 @@ int main(int argc, char **argv){
 			
 			else
 			{
-				printf("argv[2]: %s\n", argv[2] );
-				printf("argv[3]: %s\n", argv[3] );
 				
 				fs_create( argv[2], argv[3] );
 			}
@@ -54,8 +52,6 @@ int main(int argc, char **argv){
 			
 			else
 			{
-				printf("argv[2]: %s\n", argv[2] );
-				printf("argv[3]: %s\n", argv[3] );
 				
 				fs_read( argv[2], argv[3] );
 			}
@@ -70,7 +66,7 @@ int main(int argc, char **argv){
 			
 			else
 			{
-				printf("argv[2]: %s\n", argv[2] );	
+				
 				fs_ls( argv[2] );
 			}
 		}
@@ -84,7 +80,6 @@ int main(int argc, char **argv){
 			
 			else
 			{
-				printf("argv[2]: %s\n", argv[2] );	
 				fs_mkdir( argv[2] );
 			}
 		}
@@ -98,7 +93,7 @@ int main(int argc, char **argv){
 			
 			else
 			{
-				printf("argv[2]: %s\n", argv[2] );	
+				
 				fs_rmdir( argv[2] );
 			}
 		}
@@ -112,7 +107,6 @@ int main(int argc, char **argv){
 			
 			else
 			{
-				printf("argv[2]: %s\n", argv[2] );	
 				fs_del( argv[2] );
 			}
 		}
