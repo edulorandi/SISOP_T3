@@ -237,7 +237,9 @@ int fs_create(char* input_file, char* simul_file){
 		for( i = 0; i < 15; i++ )
 		{
 			
-			if( ( root_dir.entries[i].dir == 0 ) && ( strcmp( root_dir.entries[i].name, newFileName ) == 0 ) ) //se ja existe file
+			if( ( root_dir.entries[i].dir == 0 ) && 
+			    ( strcmp( root_dir.entries[i].name, newFileName ) == 0 ) &&
+		       ( root_dir.entries[i].size_bytes > 0 ) ) //se ja existe file
 			{
 				printf("There already is a file called '%s'. Exiting.\n", newFileName );
 				ds_stop();
@@ -273,7 +275,9 @@ int fs_create(char* input_file, char* simul_file){
 		for( i = 0; i < 16; i++ )
 		{
 			
-			if( ( dirTable.entries[i].dir == 0 ) && ( strcmp( dirTable.entries[i].name, newFileName ) == 0 ) ) //se ja existe file
+			if( ( dirTable.entries[i].dir == 0 ) && 
+			    ( strcmp( dirTable.entries[i].name, newFileName ) == 0 ) &&
+			    ( dirTable.entries[i].size_bytes > 0 ) ) //se ja existe file
 			{
 				printf("There already is a file called '%s'. Exiting.\n", newFileName );
 				ds_stop();
@@ -403,7 +407,9 @@ int fs_read(char* output_file, char* simul_file){
 		ds_read_sector( 0, (void*)&root_dir, SECTOR_SIZE );
 		for( i = 0; i < 15; i++ )
 		{
-			if( (root_dir.entries[i].dir == 0) && (!strcmp( root_dir.entries[i].name, fileName ) ) )
+			if( (root_dir.entries[i].dir == 0) &&
+			    (!strcmp( root_dir.entries[i].name, fileName ) ) &&
+			    ( root_dir.entries[i].size_bytes > 0 ))
 			{
 				fileEntry = root_dir.entries[i];
 				flag = 1;
@@ -424,7 +430,9 @@ int fs_read(char* output_file, char* simul_file){
 		ds_read_sector( dirAdress, (void*)&dirTable, SECTOR_SIZE );
 		for( i = 0; i < 16; i++ )
 		{
-			if( (dirTable.entries[i].dir == 0) && (!strcmp( dirTable.entries[i].name, fileName ) ) )
+			if( (dirTable.entries[i].dir == 0) && 
+			    (!strcmp( dirTable.entries[i].name, fileName ) ) &&
+		       (dirTable.entries[i].size_bytes > 0 ) )
 			{
 				fileEntry = dirTable.entries[i];
 				flag = 1;
@@ -493,12 +501,101 @@ int fs_read(char* output_file, char* simul_file){
  * @return 0 on success.
  */
 int fs_del(char* simul_file){
-	int ret;
+	int ret, i;
 	if ( (ret = ds_init(FILENAME, SECTOR_SIZE, NUMBER_OF_SECTORS, 0)) != 0 ){
 		return ret;
 	}
 	
 	/* Write the code delete a file from the simulated filesystem. */
+	
+	struct root_table_directory root_dir;
+	struct table_directory dirTable;
+	struct sector_data sector;
+	char * fileName;
+	int fileSectorStart, flag;
+	//struct file_dir_entry 
+	
+	fileName = strrchr( simul_file, '/' );
+	fileName = fileName + 1;
+	if( fileName == '\0' )
+	{
+		printf("No file name specified\n" );
+		ds_stop( );
+		return -1;
+	}
+	
+	int dirAdress = getDirSectorAdress( simul_file );	
+	
+	if( dirAdress < 0 )
+	{
+		ds_stop( );
+		return -1;
+	}
+	
+	flag = 0;
+	
+	if( dirAdress == 0 )
+	{
+		//file is in the root dir
+		ds_read_sector( 0, (void*)&root_dir, SECTOR_SIZE );
+		
+		for( i = 0; i < 15; i++ )
+		{
+			if( ( root_dir.entries[i].dir == 0 ) && 
+  			  ( strcmp( root_dir.entries[i].name, fileName ) == 0 ) &&
+  			  ( root_dir.entries[i].size_bytes > 0 ) ) //procura file
+			{
+				fileSectorStart = root_dir.entries[i].sector_start;
+				memset( &root_dir.entries[i], 0, sizeof( root_dir.entries[i] ) );
+				flag = 1;
+				break;
+			}
+		}
+		
+		if( flag == 0 )
+		{
+			printf("File not found\n" );
+			ds_stop( );
+			return -1;
+		}
+		
+		ds_write_sector( 0, (void*)&root_dir, SECTOR_SIZE );
+	}
+	else
+	{
+		//file is not in the root dir
+		ds_read_sector( dirAdress, (void*)&dirTable, SECTOR_SIZE );
+		
+		for( i = 0; i < 16; i++ )
+		{
+			if( ( dirTable.entries[i].dir == 0 ) && 
+  			  ( strcmp( dirTable.entries[i].name, fileName ) == 0 ) &&
+  			  ( dirTable.entries[i].size_bytes > 0 ) ) //procura file
+			{
+				fileSectorStart = dirTable.entries[i].sector_start;
+				memset( &dirTable.entries[i], 0, sizeof( dirTable.entries[i] ) );
+				flag = 1;
+				break;
+			}
+		}
+		
+		if( flag == 0 )
+		{
+			printf("File not found\n" );
+			ds_stop( );
+			return -1;
+		}
+		
+		ds_write_sector( dirAdress, (void*)&dirTable, SECTOR_SIZE );
+	}
+	
+	int lastAdress = getLastFreeSectorAdress( );
+	
+	ds_read_sector( lastAdress, (void*)&sector, SECTOR_SIZE );
+	
+	sector.next_sector = fileSectorStart;
+	
+	ds_write_sector( lastAdress, (void*)&sector, SECTOR_SIZE );
 	
 	ds_stop();
 	

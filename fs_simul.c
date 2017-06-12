@@ -103,6 +103,20 @@ int main(int argc, char **argv){
 			}
 		}
 		
+		else if( !strcmp(argv[1], "-del") )
+		{
+			if( argc < 2 )
+			{
+				usage( argv[0] );
+			}
+			
+			else
+			{
+				printf("argv[2]: %s\n", argv[2] );	
+				fs_del( argv[2] );
+			}
+		}
+		
 	}
 	
 	
